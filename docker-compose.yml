@@ -6,6 +6,7 @@ x-app-env: &app-env
   S3_ACCESS_KEY: ${S3_ACCESS_KEY:-rustfsadmin}
   S3_SECRET_KEY: ${S3_SECRET_KEY:-rustfsadmin}
   LAKE_BUCKET: ${LAKE_BUCKET:-jobs-lake}
+  REDIS_URL: redis://redis:6379/0
 
 x-app: &app
   image: jobmarket-app:latest
@@ -21,6 +22,7 @@ x-app: &app
 x-depends-core: &depends-core
   kafka: {condition: service_healthy}
   rustfs: {condition: service_healthy}
+  redis: {condition: service_healthy}
 
 services:
   # ------------------------------------------------------------------ infrastructure
@@ -80,10 +82,28 @@ services:
       retries: 20
     networks: [jobmarket]
 
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes: [redis-data:/data]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [jobmarket]
+
   # ------------------------------------------------------------- streaming services
   lake-sink:
     <<: *app
     command: ["python", "-m", "jobmarket.lake_sink"]
+    restart: unless-stopped
+    depends_on: *depends-core
+
+  realtime:
+    <<: *app
+    command: ["python", "-m", "jobmarket.realtime"]
     restart: unless-stopped
     depends_on: *depends-core
 
@@ -101,3 +121,4 @@ networks:
 volumes:
   kafka-data:
   lake-data:
+  redis-data:

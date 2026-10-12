@@ -16,7 +16,7 @@ COPY pyproject.toml README.md ./
 COPY src ./src
 RUN pip install ".[pipeline,api,spark]"
 
-# S3A (MinIO) + PostgreSQL JDBC drivers, versions matched to PySpark 3.5.3 / Hadoop 3.3.4
+# S3A (S3-compatible lake) + PostgreSQL JDBC drivers, versions matched to PySpark 3.5.3 / Hadoop 3.3.4
 ARG MAVEN=https://repo1.maven.org/maven2
 RUN SPARK_JARS="$(python -c 'import os, pyspark; print(os.path.join(os.path.dirname(pyspark.__file__), "jars"))')" \
     && curl -fsSL -o "$SPARK_JARS/hadoop-aws-3.3.4.jar" "$MAVEN/org/apache/hadoop/hadoop-aws/3.3.4/hadoop-aws-3.3.4.jar" \

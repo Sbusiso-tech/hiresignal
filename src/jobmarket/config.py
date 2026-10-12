@@ -23,8 +23,8 @@ class Settings:
     topic_dlq: str = field(default_factory=lambda: _env("KAFKA_TOPIC_DLQ", "jobs.dlq"))
 
     s3_endpoint: str = field(default_factory=lambda: _env("S3_ENDPOINT", "http://localhost:9000"))
-    s3_access_key: str = field(default_factory=lambda: _env("S3_ACCESS_KEY", "minioadmin"))
-    s3_secret_key: str = field(default_factory=lambda: _env("S3_SECRET_KEY", "minioadmin"))
+    s3_access_key: str = field(default_factory=lambda: _env("S3_ACCESS_KEY", "rustfsadmin"))
+    s3_secret_key: str = field(default_factory=lambda: _env("S3_SECRET_KEY", "rustfsadmin"))
     lake_bucket: str = field(default_factory=lambda: _env("LAKE_BUCKET", "jobs-lake"))
 
     pg_host: str = field(default_factory=lambda: _env("POSTGRES_HOST", "localhost"))

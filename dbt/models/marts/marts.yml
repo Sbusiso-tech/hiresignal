@@ -1,0 +1,87 @@
+version: 2
+
+models:
+  - name: fct_job_postings
+    description: One row per job posting. Grain = job_id. Connect Power BI here.
+    columns:
+      - name: job_id
+        data_tests: [unique, not_null]
+      - name: company_key
+        data_tests:
+          - relationships:
+              to: ref('dim_company')
+              field: company_key
+    data_tests:
+      - valid_range:
+          lower_column: salary_usd_min
+          upper_column: salary_usd_max
+
+  - name: dim_company
+    columns:
+      - name: company_key
+        data_tests: [unique, not_null]
+
+  - name: dim_skill
+    columns:
+      - name: skill_key
+        data_tests: [unique, not_null]
+      - name: skill
+        data_tests: [unique, not_null]
+
+  - name: bridge_job_skill
+    columns:
+      - name: job_id
+        data_tests:
+          - relationships:
+              to: ref('fct_job_postings')
+              field: job_id
+      - name: skill_key
+        data_tests:
+          - relationships:
+              to: ref('dim_skill')
+              field: skill_key
+    data_tests:
+      - unique_combination:
+          columns: [job_id, skill_key]
+
+  - name: mart_skill_demand
+    description: Ranked skill demand across all tech roles, with share of jobs and median salary.
+    columns:
+      - name: skill
+        data_tests: [unique, not_null]
+      - name: job_count
+        data_tests: [not_null]
+
+  - name: mart_skill_demand_monthly
+    description: Monthly skill demand trend.
+    data_tests:
+      - unique_combination:
+          columns: [posted_month, skill]
+
+  - name: mart_skill_by_job_family
+    description: Top skills per role family.
+    data_tests:
+      - unique_combination:
+          columns: [job_family, skill]
+
+  - name: mart_salary_by_skill
+    description: Salary percentiles (annual USD) per skill, excluding predicted salaries.
+    columns:
+      - name: skill
+        data_tests: [unique]
+    data_tests:
+      - valid_range:
+          lower_column: p25_salary_usd
+          upper_column: p75_salary_usd
+
+  - name: mart_skill_pairs
+    description: Skill co-occurrence.
+
+  - name: mart_market_overview
+    description: Job counts and averages by family, seniority, employment type and remote flag.
+
+  - name: mart_top_companies
+    description: Companies hiring the most tech roles and their top requested skills.
+    columns:
+      - name: company
+        data_tests: [unique]

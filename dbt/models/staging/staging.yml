@@ -1,0 +1,43 @@
+version: 2
+
+models:
+  - name: stg_jobs
+    description: Cleaned job postings with a derived job_family.
+    columns:
+      - name: job_id
+        data_tests: [unique, not_null]
+      - name: job_title
+        data_tests: [not_null]
+      - name: employment_type
+        data_tests:
+          - accepted_values:
+              values: [full_time, part_time, contract, internship, temporary, unspecified]
+      - name: seniority
+        data_tests:
+          - accepted_values:
+              values: [intern, junior, mid, senior, lead, unspecified]
+      - name: job_family
+        data_tests: [not_null]
+      - name: posted_date
+        data_tests: [not_null]
+    data_tests:
+      - valid_range:
+          lower_column: salary_annual_min
+          upper_column: salary_annual_max
+      - valid_range:
+          lower_column: experience_years_min
+          upper_column: experience_years_max
+
+  - name: stg_job_skills
+    columns:
+      - name: job_id
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('stg_jobs')
+              field: job_id
+      - name: skill
+        data_tests: [not_null]
+    data_tests:
+      - unique_combination:
+          columns: [job_id, skill]

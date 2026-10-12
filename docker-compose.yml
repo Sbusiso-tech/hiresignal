@@ -144,6 +144,18 @@ services:
     ports: ["4040:4040"]
     depends_on: *depends-core
 
+  dbt:
+    image: jobmarket-dbt:latest
+    build:
+      context: .
+      dockerfile: docker/dbt.Dockerfile
+    profiles: [jobs]
+    environment: *app-env
+    command: ["build"]
+    depends_on:
+      postgres: {condition: service_healthy}
+    networks: [jobmarket]
+
 networks:
   jobmarket:
     name: jobmarket_net

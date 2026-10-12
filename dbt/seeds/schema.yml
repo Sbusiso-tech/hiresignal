@@ -1,0 +1,16 @@
+version: 2
+
+seeds:
+  - name: currency_rates_to_usd
+    description: >
+      Static, approximate FX rates used to compare salaries across countries.
+      Refresh periodically (or replace with an FX API) for precise figures.
+    config:
+      column_types:
+        usd_rate: numeric(18, 6)
+        as_of: date
+    columns:
+      - name: currency
+        data_tests: [unique, not_null]
+      - name: usd_rate
+        data_tests: [not_null]

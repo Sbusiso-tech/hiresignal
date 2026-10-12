@@ -6,6 +6,11 @@ x-app-env: &app-env
   S3_ACCESS_KEY: ${S3_ACCESS_KEY:-rustfsadmin}
   S3_SECRET_KEY: ${S3_SECRET_KEY:-rustfsadmin}
   LAKE_BUCKET: ${LAKE_BUCKET:-jobs-lake}
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: ${POSTGRES_DB:-jobmarket}
+  POSTGRES_USER: ${POSTGRES_USER:-jobmarket}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-jobmarket}
   REDIS_URL: redis://redis:6379/0
 
 x-app: &app
@@ -22,6 +27,7 @@ x-app: &app
 x-depends-core: &depends-core
   kafka: {condition: service_healthy}
   rustfs: {condition: service_healthy}
+  postgres: {condition: service_healthy}
   redis: {condition: service_healthy}
 
 services:
@@ -82,6 +88,23 @@ services:
       retries: 20
     networks: [jobmarket]
 
+  postgres:
+    image: postgres:16
+    ports: ["5432:5432"]
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-jobmarket}
+      POSTGRES_USER: ${POSTGRES_USER:-jobmarket}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-jobmarket}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./src/jobmarket/sql/schema.sql:/docker-entrypoint-initdb.d/10-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [jobmarket]
+
   redis:
     image: redis:7-alpine
     ports: ["6379:6379"]
@@ -114,6 +137,13 @@ services:
     command: ["python", "-m", "jobmarket.ingest"]
     depends_on: *depends-core
 
+  spark:
+    <<: *app
+    profiles: [jobs]
+    command: ["python", "-m", "jobmarket.spark_jobs.transform_jobs"]
+    ports: ["4040:4040"]
+    depends_on: *depends-core
+
 networks:
   jobmarket:
     name: jobmarket_net
@@ -121,4 +151,5 @@ networks:
 volumes:
   kafka-data:
   lake-data:
+  postgres-data:
   redis-data:

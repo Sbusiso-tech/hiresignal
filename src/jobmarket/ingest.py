@@ -1,4 +1,4 @@
-"""Pull jobs from the job APIs and publish them to Kafka.
+"""Pull jobs from the job APIs and the partner SFTP drop and publish them to Kafka.
 
     python -m jobmarket.ingest                         # all configured sources -> Kafka
     python -m jobmarket.ingest --sources remotive      # a single source
@@ -42,7 +42,7 @@ def run(settings: Settings, source_names: list[str], dry_run_path: str | None = 
                 continue
             source = SOURCES[name](settings)
             if not source.is_configured():
-                log.warning("skipping %s: API credentials not set", name)
+                log.warning("skipping %s: credentials not set", name)
                 stats[f"{name}.skipped"] += 1
                 continue
             try:
@@ -55,6 +55,10 @@ def run(settings: Settings, source_names: list[str], dry_run_path: str | None = 
                         )
                         producer.poll(0)
                     stats[f"{name}.published"] += 1
+                if producer is not None:
+                    if producer.flush(30) or stats["delivery_failed"]:
+                        raise RuntimeError("not every event was acknowledged by Kafka")
+                    source.commit()
             except Exception as exc:
                 stats[f"{name}.failed"] += 1
                 log.exception("source %s failed: %s", name, exc)

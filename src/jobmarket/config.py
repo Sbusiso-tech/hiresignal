@@ -36,7 +36,9 @@ class Settings:
     redis_url: str = field(default_factory=lambda: _env("REDIS_URL", "redis://localhost:6379/0"))
 
     sources: list[str] = field(
-        default_factory=lambda: _env_list("JOB_SOURCES", "himalayas,jobicy,remotive,arbeitnow,adzuna,jsearch")
+        default_factory=lambda: _env_list(
+            "JOB_SOURCES", "himalayas,jobicy,remotive,arbeitnow,adzuna,jsearch,partner_sftp"
+        )
     )
     search_terms: list[str] = field(
         default_factory=lambda: _env_list(
@@ -55,6 +57,13 @@ class Settings:
     jsearch_location: str = field(default_factory=lambda: _env("JSEARCH_LOCATION", "South Africa"))
     jsearch_country: str = field(default_factory=lambda: _env("JSEARCH_COUNTRY", "za"))
     jsearch_num_pages: int = field(default_factory=lambda: _env_int("JSEARCH_NUM_PAGES", 2))
+
+    sftp_host: str = field(default_factory=lambda: _env("SFTP_HOST"))
+    sftp_port: int = field(default_factory=lambda: _env_int("SFTP_PORT", 22))
+    sftp_user: str = field(default_factory=lambda: _env("SFTP_USER", "partner"))
+    sftp_password: str = field(default_factory=lambda: _env("SFTP_PASSWORD"))
+    sftp_inbox_dir: str = field(default_factory=lambda: _env("SFTP_INBOX_DIR", "upload/exports"))
+    sftp_archive_dir: str = field(default_factory=lambda: _env("SFTP_ARCHIVE_DIR", "upload/archive"))
 
     http_timeout: int = field(default_factory=lambda: _env_int("HTTP_TIMEOUT_SECONDS", 30))
 

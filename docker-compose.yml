@@ -12,6 +12,10 @@ x-app-env: &app-env
   POSTGRES_USER: ${POSTGRES_USER:-jobmarket}
   POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-jobmarket}
   REDIS_URL: redis://redis:6379/0
+  SFTP_HOST: sftp
+  SFTP_PORT: "22"
+  SFTP_USER: ${SFTP_USER:-partner}
+  SFTP_PASSWORD: ${SFTP_PASSWORD:-partner}
 
 x-app: &app
   image: jobmarket-app:latest
@@ -118,6 +122,21 @@ services:
       retries: 10
     networks: [jobmarket]
 
+  # Partner SFTP server: a recruitment agency drops a daily CSV export into upload/exports
+  sftp:
+    image: atmoz/sftp:alpine
+    command: ["${SFTP_USER:-partner}:${SFTP_PASSWORD:-partner}:1001:100:upload"]
+    ports: ["2222:22"]
+    volumes:
+      - sftp-data:/home/${SFTP_USER:-partner}/upload
+      - ./docker/sftp/fix-permissions.sh:/etc/sftp.d/fix-permissions.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 22"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [jobmarket]
+
   # ------------------------------------------------------------- streaming services
   lake-sink:
     <<: *app
@@ -203,3 +222,4 @@ volumes:
   lake-data:
   postgres-data:
   redis-data:
+  sftp-data:

@@ -72,6 +72,9 @@ class JobSource(ABC):
     def to_event(self, job: dict, **kwargs: Any) -> RawJobEvent:
         """Map one raw API record onto the common event contract."""
 
+    def commit(self) -> None:
+        """Called once every event from ``fetch()`` has been acknowledged by Kafka."""
+
     def _get(self, url: str, **kwargs: Any) -> Any:
         kwargs.setdefault("timeout", self.settings.http_timeout)
         response = self.session.get(url, **kwargs)

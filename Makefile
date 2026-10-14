@@ -1,5 +1,6 @@
 SHELL := /bin/bash
 COMPOSE := docker compose
+export DOCKER_GID ?= $(shell stat -c %g /var/run/docker.sock 2>/dev/null || echo 999)
 
 .DEFAULT_GOAL := help
 
@@ -40,6 +41,9 @@ top-skills: ## Print the top 20 skills from the warehouse
 	  "select demand_rank, skill, skill_category, job_count, pct_of_tech_jobs, median_salary_usd from marts.mart_skill_demand order by job_count desc limit 20"
 
 
+airflow: build ## Start Airflow (http://localhost:8080, admin / admin)
+	$(COMPOSE) --profile airflow up -d airflow
+
 test: ## Run unit tests locally
 	python3 -m pytest -q
 
@@ -47,9 +51,9 @@ logs: ## Tail logs of the streaming services
 	$(COMPOSE) logs -f lake-sink realtime api
 
 down: ## Stop everything (keeps data volumes)
-	$(COMPOSE) --profile jobs down
+	$(COMPOSE) --profile jobs --profile airflow down
 
 clean: ## Stop everything and delete all data volumes
-	$(COMPOSE) --profile jobs down -v
+	$(COMPOSE) --profile jobs --profile airflow down -v
 
-.PHONY: help env build up ingest drain spark dbt pipeline top-skills test logs down clean
+.PHONY: help env build up ingest drain spark dbt pipeline top-skills airflow test logs down clean

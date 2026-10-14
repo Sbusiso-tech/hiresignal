@@ -32,6 +32,7 @@ as real-time counts.
           ┌────────┴─────────┐                                │
           ▼                  ▼                                ▼
        Power BI          FastAPI  ◄──────────────────────────┘
+                                                Orchestrated by Apache Airflow
 ```
 
 Example output (a real run on 6 Oct 2026, ~1,600 postings, keyless sources only):
@@ -97,13 +98,14 @@ make top-skills               # print the answer
 | Kafka UI | http://localhost:8081 | |
 | RustFS console (data lake) | http://localhost:9001 | rustfsadmin / rustfsadmin |
 | Spark UI (while `make spark` runs) | http://localhost:4040 | |
+| Airflow (`make airflow`) | http://localhost:8080 | admin / admin |
 | PostgreSQL | localhost:5432 | jobmarket / jobmarket |
 
-Stop and reset:
+Optional extras:
 
 ```bash
-make down      # stop (keeps data)
-make clean     # stop and wipe all volumes
+make airflow   # scheduled DAG: runs the whole pipeline at 06:00 and 18:00
+make down      # stop (keeps data);  make clean  # stop and wipe all volumes
 ```
 
 ### API examples
@@ -136,6 +138,7 @@ src/jobmarket/
   sql/                  warehouse DDL + idempotent upsert
   api/                  FastAPI service
 dbt/                    staging -> intermediate -> marts, tests, FX seed
+airflow/dags/           orchestration DAG (DockerOperator tasks)
 tests/                  unit tests (pytest)
 ```
 
@@ -169,8 +172,8 @@ tests/                  unit tests (pytest)
   accepted values, relationships, salary range checks) and source freshness checks.
 - **Lineage and observability.** `core.pipeline_runs` records every Spark run: raw records,
   unique jobs, inserts, updates and status.
-- **One image per runtime.** A single app image runs ingestion, consumers, Spark and the API, so
-  every workload shares the same tested code and dependencies.
+- **One image per runtime.** A single app image runs ingestion, consumers, Spark and the API, and
+  Airflow launches it with `DockerOperator`, so the scheduler needs no heavy dependencies.
 
 ---
 
@@ -182,9 +185,9 @@ tests/                  unit tests (pytest)
 | 2 | Storage, file formats (JSON, Parquet), distributed FS, CAP, Docker | gzipped JSONL raw zone + Parquet curated zone on S3-compatible storage (RustFS); fully containerised |
 | 3 | SQL, ERDs, normalisation, ACID, PostgreSQL, NoSQL | normalised `core.jobs` / `core.job_skills`, transactional upsert, star schema; Redis key-value store |
 | 4 | Data lakes vs warehouses, ETL vs ELT, ingestion from REST APIs with `requests` | six REST APIs; lake (RustFS) + warehouse (Postgres); ELT with dbt |
-| 5 | Batch vs stream, Spark, Kafka, Airflow DAGs | Spark batch job, Kafka streaming consumers (Airflow DAG: roadmap) |
+| 5 | Batch vs stream, Spark, Kafka, Airflow DAGs | Spark batch job, Kafka streaming consumers, Airflow DAG |
 | 6 | Data governance and quality dimensions | contracts, DLQ, quality gate, dbt tests and freshness, run audit table |
-| 7–8 | Capstone: multi-source ingestion, batch + stream, REST API serving, Spark, Airflow, Debezium, dbt, CDC, high-velocity store | all of the above + FastAPI + Redis (Airflow, CDC, SFTP and PostgreSQL sources: roadmap) |
+| 7–8 | Capstone: multi-source ingestion, batch + stream, REST API serving, Spark, Airflow, Debezium, dbt, CDC, high-velocity store | all of the above + FastAPI + Airflow + Redis (CDC, SFTP and PostgreSQL sources: roadmap) |
 | 9 | Demo and defence | architecture diagram, engineering decisions above, live API + dashboard |
 
 ---
@@ -229,7 +232,7 @@ python3 -m venv .venv && .venv/bin/pip install -e ".[dev,pipeline,api]"
 
 ## Roadmap
 
-- [ ] Apache Airflow DAG to schedule the whole pipeline
+- [x] Apache Airflow DAG to schedule the whole pipeline
 - [ ] SFTP source: a partner's daily CSV export of job postings
 - [ ] Operational PostgreSQL source (recruiter CRM) captured with Debezium CDC into Kafka and Redis
 - [ ] GitHub Actions CI: lint, unit tests and dbt parse

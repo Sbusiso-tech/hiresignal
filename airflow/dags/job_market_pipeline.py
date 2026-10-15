@@ -1,6 +1,7 @@
 """Job Market Intelligence pipeline.
 
-ingest (APIs -> Kafka) -> drain to lake (Kafka -> S3 / RustFS) -> Spark (lake -> Postgres) -> dbt build -> freshness
+partner SFTP drop (simulated) -> ingest (APIs + SFTP -> Kafka) -> drain to lake (Kafka -> S3 / RustFS)
+-> Spark (lake -> Postgres) -> dbt build -> freshness
 
 Every task runs in the project's own Docker images, so Airflow only orchestrates
 and never needs Spark, dbt or Kafka libraries installed itself.
@@ -24,6 +25,7 @@ PASSTHROUGH_ENV = [
     "REDIS_URL", "JOB_SOURCES", "SEARCH_TERMS", "HIMALAYAS_MAX_PAGES", "ARBEITNOW_MAX_PAGES",
     "ADZUNA_APP_ID", "ADZUNA_APP_KEY", "ADZUNA_COUNTRIES", "ADZUNA_MAX_PAGES",
     "RAPIDAPI_KEY", "JSEARCH_LOCATION", "JSEARCH_COUNTRY", "JSEARCH_NUM_PAGES",
+    "SFTP_HOST", "SFTP_PORT", "SFTP_USER", "SFTP_PASSWORD", "SFTP_INBOX_DIR", "SFTP_ARCHIVE_DIR",
 ]
 ENV = {key: os.environ[key] for key in PASSTHROUGH_ENV if os.environ.get(key)}
 
@@ -53,7 +55,17 @@ with DAG(
     tags=["job-market", "portfolio"],
     doc_md=__doc__,
 ) as dag:
-    ingest = task("ingest_job_apis", "python -m jobmarket.ingest", execution_timeout=timedelta(minutes=30))
+    partner_drop = task(
+        "simulate_partner_sftp_drop",
+        "python -m jobmarket.partner_feed --date {{ data_interval_end.strftime('%Y-%m-%d') }}",
+    )
+    # The APIs are still worth ingesting when the partner's SFTP server is unavailable.
+    ingest = task(
+        "ingest_job_apis",
+        "python -m jobmarket.ingest",
+        execution_timeout=timedelta(minutes=30),
+        trigger_rule="all_done",
+    )
     drain = task("drain_kafka_to_lake", "python -m jobmarket.lake_sink --until-idle 30")
     spark = task(
         "spark_transform", "python -m jobmarket.spark_jobs.transform_jobs", execution_timeout=timedelta(minutes=30)
@@ -61,4 +73,4 @@ with DAG(
     dbt_build = task("dbt_build", "build", image=DBT_IMAGE)
     freshness = task("dbt_source_freshness", "source freshness", image=DBT_IMAGE)
 
-    ingest >> drain >> spark >> dbt_build >> freshness
+    partner_drop >> ingest >> drain >> spark >> dbt_build >> freshness

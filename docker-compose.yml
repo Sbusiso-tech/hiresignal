@@ -16,6 +16,11 @@ x-app-env: &app-env
   SFTP_PORT: "22"
   SFTP_USER: ${SFTP_USER:-partner}
   SFTP_PASSWORD: ${SFTP_PASSWORD:-partner}
+  CRM_HOST: crm-db
+  CRM_PORT: "5432"
+  CRM_DB: ${CRM_DB:-crm}
+  CRM_USER: ${CRM_USER:-crm}
+  CRM_PASSWORD: ${CRM_PASSWORD:-crm}
 
 x-app: &app
   image: jobmarket-app:latest
@@ -122,6 +127,24 @@ services:
       retries: 10
     networks: [jobmarket]
 
+  # Operational database of the in-house recruitment desk (a source system, not the warehouse)
+  crm-db:
+    image: postgres:16
+    ports: ["5433:5432"]
+    environment:
+      POSTGRES_DB: ${CRM_DB:-crm}
+      POSTGRES_USER: ${CRM_USER:-crm}
+      POSTGRES_PASSWORD: ${CRM_PASSWORD:-crm}
+    volumes:
+      - crm-data:/var/lib/postgresql/data
+      - ./src/jobmarket/sql/crm_schema.sql:/docker-entrypoint-initdb.d/10-crm-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [jobmarket]
+
   # Partner SFTP server: a recruitment agency drops a daily CSV export into upload/exports
   sftp:
     image: atmoz/sftp:alpine
@@ -223,3 +246,4 @@ volumes:
   postgres-data:
   redis-data:
   sftp-data:
+  crm-data:

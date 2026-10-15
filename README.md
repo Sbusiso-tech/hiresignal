@@ -2,18 +2,18 @@
 
 **What technologies are employers asking for?**
 
-An end-to-end data engineering platform that collects real job postings from public job APIs and
-a partner's daily SFTP file drop, streams them through Kafka into a data lake, transforms them with
-Spark, models them with dbt in PostgreSQL and serves the results to Power BI and a REST API, both as
-nightly batch analytics and as real-time counts.
+An end-to-end data engineering platform that collects real job postings from public job APIs, a
+partner's daily SFTP file drop and an operational recruitment CRM (PostgreSQL), streams them through
+Kafka into a data lake, transforms them with Spark, models them with dbt in PostgreSQL and serves the
+results to Power BI and a REST API, both as nightly batch analytics and as real-time counts.
 
 ```
- Himalayas · Jobicy · Remotive · Arbeitnow        Partner SFTP drop
- Adzuna · JSearch     (real job APIs)            (daily CSV)
-            │                                         │
-            └─────────────────┬───────────────────────┘
+ Himalayas · Jobicy · Remotive    Partner SFTP drop    Recruitment CRM
+ Arbeitnow · Adzuna · JSearch     (daily CSV)          (PostgreSQL)
+            │                             │                  │
+            └─────────────────┬───────────┴──────────────────┘
                               ▼
-                  Python ingestion (requests, paramiko, pydantic) ──► jobs.dlq (dead letters)
+                  Python ingestion (requests, paramiko, psycopg, pydantic) ──► jobs.dlq (dead letters)
                               │
                               ▼
                      Kafka  topic: jobs.raw
@@ -78,12 +78,20 @@ Every posting is normalised to the same fields:
 | [Adzuna](https://developer.adzuna.com/) | free key | **South Africa** (`za`), UK, US… with salaries |
 | [JSearch (RapidAPI)](https://rapidapi.com/letscrape-6bRBa3QguO5/api/jsearch) | free key | Google for Jobs aggregate (LinkedIn, Indeed, …) |
 | Partner SFTP drop | SFTP login | daily `jobs_YYYY-MM-DD.csv` from a recruitment partner (South Africa, ZAR) |
+| Recruitment desk CRM | DB login | vacancies from an operational PostgreSQL database (`crm-db`) |
 
 The partner drop is simulated: there is no public SFTP job feed, so `make partner-drop` plays the
 partner (a fictional South African recruitment agency) and uploads a deterministic daily CSV to the
 `sftp` container. Ingestion reads every file in `upload/exports` and moves it to `upload/archive`
-only after Kafka has acknowledged all of its rows. Companies in this feed are fictional, so filter on
-`source <> 'partner_sftp'` for market-only analysis.
+only after Kafka has acknowledged all of its rows.
+
+The recruitment CRM is simulated the same way: `make crm-activity` plays the recruiters, opening,
+re-pricing, filling and closing vacancies in a separate PostgreSQL database (`crm-db`, schema `crm`)
+that stands in for an operational application. Ingestion reads every vacancy changed in the last
+`CRM_LOOKBACK_HOURS` through a read-only session.
+
+Companies in both simulated feeds are fictional, so filter on
+`source not in ('partner_sftp', 'crm_postgres')` for market-only analysis.
 
 Sources without credentials are skipped automatically. Please respect each provider's terms:
 keep the `url` link back to the original posting and credit the source.
@@ -98,6 +106,7 @@ Requirements: Docker with Compose v2, `make`, about 6 GB of free RAM.
 cp .env.example .env          # optional: add Adzuna / RapidAPI keys
 make up                       # Kafka, RustFS, Postgres, Redis, SFTP, lake sink, realtime consumer, API
 make partner-drop             # the partner uploads today's CSV to the SFTP server
+make crm-activity             # recruiters change vacancies in the CRM database
 make pipeline                 # ingest -> drain to lake -> Spark -> dbt build
 make top-skills               # print the answer
 ```
@@ -111,11 +120,12 @@ make top-skills               # print the answer
 | Airflow (`make airflow`) | http://localhost:8080 | admin / admin |
 | PostgreSQL | localhost:5432 | jobmarket / jobmarket |
 | Partner SFTP | sftp://localhost:2222 | partner / partner |
+| Recruitment CRM (PostgreSQL) | localhost:5433, database `crm` | crm / crm |
 
 Optional extras:
 
 ```bash
-make airflow   # scheduled DAG: partner drop + the whole pipeline at 06:00 and 18:00
+make airflow   # scheduled DAG: partner drop + CRM activity + the whole pipeline at 06:00 and 18:00
 make down      # stop (keeps data);  make clean  # stop and wipe all volumes
 ```
 
@@ -138,17 +148,18 @@ curl "localhost:8000/pipeline/runs"                       # batch run audit log
 
 ```
 src/jobmarket/
-  sources/              one module per job API + the partner SFTP drop (fetch + map to the event contract)
+  sources/              one module per source: job APIs, partner SFTP drop, CRM (fetch + map to the event contract)
   partner_feed.py       simulated partner: daily CSV upload to the SFTP server
+  crm_simulator.py      simulated recruiters: activity in the CRM database
   sftp_io.py            SFTP connection helpers (paramiko)
   models.py             RawJobEvent: the pydantic contract for the jobs.raw topic
-  ingest.py             APIs + SFTP -> Kafka (with dead-letter topic)
+  ingest.py             APIs + SFTP + CRM -> Kafka (with dead-letter topic)
   lake_sink.py          Kafka -> S3 raw zone (gzipped JSONL, Hive-style partitions)
   realtime.py           Kafka -> Redis skill leaderboard (speed layer)
   transform.py          cleaning rules (salary, experience, seniority, employment type)
   skills.py             skill extractor + skills_taxonomy.yml
   spark_jobs/           Spark batch job: lake -> curated Parquet -> Postgres upsert
-  sql/                  warehouse DDL + idempotent upsert
+  sql/                  warehouse DDL + idempotent upsert, CRM schema
   api/                  FastAPI service
 dbt/                    staging -> intermediate -> marts, tests, FX seed
 airflow/dags/           orchestration DAG (DockerOperator tasks)
@@ -181,6 +192,9 @@ tests/                  unit tests (pytest)
 - **Files are acknowledged, not just read.** SFTP files move to the archive only after Kafka confirms
   every row, and uploads are written under a temporary name and renamed, so a half-written or failed
   delivery is never lost or half-loaded.
+- **Operational and analytical stores stay apart.** The CRM is its own normalised OLTP database with
+  constraints and an `updated_at` trigger; the platform only reads it, in a read-only session, over an
+  overlapping time window, so a missed run never loses changes and re-reads are free thanks to the upsert.
 - **Lambda architecture.** Kafka feeds both the batch path (lake → Spark → dbt, accurate and
   historical) and a speed path (Redis, live within seconds).
 - **Data quality at every layer.** pydantic validation with a dead-letter topic at ingestion, a
@@ -199,11 +213,11 @@ tests/                  unit tests (pytest)
 |---|---|---|
 | 1 | ETL, Linux/Bash, Python + Pandas | `ingest.py` → `transform.py` → load; Makefile/Bash automation |
 | 2 | Storage, file formats (JSON, Parquet), distributed FS, CAP, Docker | gzipped JSONL raw zone + Parquet curated zone on S3-compatible storage (RustFS); fully containerised |
-| 3 | SQL, ERDs, normalisation, ACID, PostgreSQL, NoSQL | normalised `core.jobs` / `core.job_skills`, transactional upsert, star schema; Redis key-value store |
+| 3 | SQL, ERDs, normalisation, ACID, PostgreSQL, NoSQL | operational CRM (OLTP, constraints, triggers) vs warehouse (OLAP); normalised `core.jobs` / `core.job_skills`, transactional upsert, star schema; Redis key-value store |
 | 4 | Data lakes vs warehouses, ETL vs ELT, ingestion from REST APIs with `requests` | six REST APIs + SFTP file drop; lake (RustFS) + warehouse (Postgres); ELT with dbt |
 | 5 | Batch vs stream, Spark, Kafka, Airflow DAGs | Spark batch job, Kafka streaming consumers, Airflow DAG |
 | 6 | Data governance and quality dimensions | contracts, DLQ, quality gate, dbt tests and freshness, run audit table |
-| 7–8 | Capstone: multi-source ingestion, batch + stream, REST API serving, Spark, Airflow, Debezium, dbt, CDC, high-velocity store | all of the above + SFTP + FastAPI + Airflow + Redis (PostgreSQL source + CDC: roadmap) |
+| 7–8 | Capstone: multi-source ingestion, batch + stream, REST API serving, Spark, Airflow, Debezium, dbt, CDC, high-velocity store | APIs + SFTP + PostgreSQL CRM sources, Kafka, Spark, Airflow, dbt, FastAPI, Redis (Debezium CDC: roadmap) |
 | 9 | Demo and defence | architecture diagram, engineering decisions above, live API + dashboard |
 
 ---
@@ -250,7 +264,8 @@ python3 -m venv .venv && .venv/bin/pip install -e ".[dev,pipeline,api]"
 
 - [x] Apache Airflow DAG to schedule the whole pipeline
 - [x] SFTP source: a partner's daily CSV export of job postings
-- [ ] Operational PostgreSQL source (recruiter CRM) captured with Debezium CDC into Kafka and Redis
+- [x] Operational PostgreSQL source: the recruitment desk's CRM
+- [ ] Debezium CDC on the CRM: stream vacancy changes into Kafka and Redis
 - [ ] GitHub Actions CI: lint, unit tests and dbt parse
 - [ ] Power BI dashboard screenshots and setup guides
 

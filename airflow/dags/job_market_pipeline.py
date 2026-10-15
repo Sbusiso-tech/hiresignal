@@ -1,7 +1,7 @@
 """Job Market Intelligence pipeline.
 
-partner SFTP drop (simulated) -> ingest (APIs + SFTP -> Kafka) -> drain to lake (Kafka -> S3 / RustFS)
--> Spark (lake -> Postgres) -> dbt build -> freshness
+partner SFTP drop + CRM activity (simulated) -> ingest (APIs + SFTP + CRM -> Kafka)
+-> drain to lake (Kafka -> S3 / RustFS) -> Spark (lake -> Postgres) -> dbt build -> freshness
 
 Every task runs in the project's own Docker images, so Airflow only orchestrates
 and never needs Spark, dbt or Kafka libraries installed itself.
@@ -26,6 +26,7 @@ PASSTHROUGH_ENV = [
     "ADZUNA_APP_ID", "ADZUNA_APP_KEY", "ADZUNA_COUNTRIES", "ADZUNA_MAX_PAGES",
     "RAPIDAPI_KEY", "JSEARCH_LOCATION", "JSEARCH_COUNTRY", "JSEARCH_NUM_PAGES",
     "SFTP_HOST", "SFTP_PORT", "SFTP_USER", "SFTP_PASSWORD", "SFTP_INBOX_DIR", "SFTP_ARCHIVE_DIR",
+    "CRM_HOST", "CRM_PORT", "CRM_DB", "CRM_USER", "CRM_PASSWORD", "CRM_LOOKBACK_HOURS",
 ]
 ENV = {key: os.environ[key] for key in PASSTHROUGH_ENV if os.environ.get(key)}
 
@@ -59,7 +60,8 @@ with DAG(
         "simulate_partner_sftp_drop",
         "python -m jobmarket.partner_feed --date {{ data_interval_end.strftime('%Y-%m-%d') }}",
     )
-    # The APIs are still worth ingesting when the partner's SFTP server is unavailable.
+    crm_activity = task("simulate_crm_activity", "python -m jobmarket.crm_simulator --actions 25")
+    # The APIs are still worth ingesting when the partner's SFTP server or the CRM is unavailable.
     ingest = task(
         "ingest_job_apis",
         "python -m jobmarket.ingest",
@@ -73,4 +75,4 @@ with DAG(
     dbt_build = task("dbt_build", "build", image=DBT_IMAGE)
     freshness = task("dbt_source_freshness", "source freshness", image=DBT_IMAGE)
 
-    partner_drop >> ingest >> drain >> spark >> dbt_build >> freshness
+    [partner_drop, crm_activity] >> ingest >> drain >> spark >> dbt_build >> freshness

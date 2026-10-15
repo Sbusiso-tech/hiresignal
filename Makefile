@@ -24,7 +24,10 @@ up: build ## Start infrastructure + streaming services + API
 partner-drop: ## Simulate the partner's daily CSV delivery to the SFTP server
 	$(COMPOSE) run --rm ingest python -m jobmarket.partner_feed
 
-ingest: ## Pull jobs from the APIs and the partner SFTP drop into Kafka
+crm-activity: ## Simulate recruiters opening, re-pricing, filling and closing vacancies in the CRM
+	$(COMPOSE) run --rm ingest python -m jobmarket.crm_simulator --actions 25
+
+ingest: ## Pull jobs from the APIs, the partner SFTP drop and the CRM into Kafka
 	$(COMPOSE) run --rm ingest
 
 drain: ## Flush everything on the Kafka topic into the raw data lake
@@ -59,4 +62,4 @@ down: ## Stop everything (keeps data volumes)
 clean: ## Stop everything and delete all data volumes
 	$(COMPOSE) --profile jobs --profile airflow down -v
 
-.PHONY: help env build up partner-drop ingest drain spark dbt pipeline top-skills airflow test logs down clean
+.PHONY: help env build up partner-drop crm-activity ingest drain spark dbt pipeline top-skills airflow test logs down clean

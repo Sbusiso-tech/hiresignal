@@ -37,7 +37,7 @@ class Settings:
 
     sources: list[str] = field(
         default_factory=lambda: _env_list(
-            "JOB_SOURCES", "himalayas,jobicy,remotive,arbeitnow,adzuna,jsearch,partner_sftp"
+            "JOB_SOURCES", "himalayas,jobicy,remotive,arbeitnow,adzuna,jsearch,partner_sftp,crm_postgres"
         )
     )
     search_terms: list[str] = field(
@@ -65,6 +65,13 @@ class Settings:
     sftp_inbox_dir: str = field(default_factory=lambda: _env("SFTP_INBOX_DIR", "upload/exports"))
     sftp_archive_dir: str = field(default_factory=lambda: _env("SFTP_ARCHIVE_DIR", "upload/archive"))
 
+    crm_host: str = field(default_factory=lambda: _env("CRM_HOST"))
+    crm_port: int = field(default_factory=lambda: _env_int("CRM_PORT", 5432))
+    crm_db: str = field(default_factory=lambda: _env("CRM_DB", "crm"))
+    crm_user: str = field(default_factory=lambda: _env("CRM_USER", "crm"))
+    crm_password: str = field(default_factory=lambda: _env("CRM_PASSWORD"))
+    crm_lookback_hours: int = field(default_factory=lambda: _env_int("CRM_LOOKBACK_HOURS", 72))
+
     http_timeout: int = field(default_factory=lambda: _env_int("HTTP_TIMEOUT_SECONDS", 30))
 
     @property
@@ -72,6 +79,13 @@ class Settings:
         return (
             f"host={self.pg_host} port={self.pg_port} dbname={self.pg_db} "
             f"user={self.pg_user} password={self.pg_password}"
+        )
+
+    @property
+    def crm_dsn(self) -> str:
+        return (
+            f"host={self.crm_host} port={self.crm_port} dbname={self.crm_db} "
+            f"user={self.crm_user} password={self.crm_password}"
         )
 
     @property

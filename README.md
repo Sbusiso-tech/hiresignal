@@ -262,7 +262,16 @@ Suggested report pages:
 
 ---
 
+## Dashboard
+
+Rendered from the live `marts` tables on 20 October 2026 (6,720 postings). Python is mentioned in 39% of them.
+
+![What employers are asking for](docs/images/dashboard.png)
+
+On Linux, `make metabase` starts Metabase at http://localhost:3000. Connect it to host `postgres`, port `5432`, database `jobmarket`, and use schema `marts`. On Windows, the Power BI steps above use the same tables.
+
 ## Running locally without Docker (development)
+
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -e ".[dev,pipeline,api]"
@@ -284,7 +293,7 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on every push to `main` and on 
 - [x] Operational PostgreSQL source: the recruitment desk's CRM
 - [x] Debezium CDC on the CRM: stream vacancy changes into Kafka and Redis
 - [x] GitHub Actions CI: lint, unit tests and dbt parse
-- [ ] Power BI dashboard screenshots and setup guides
+- [x] Dashboard screenshots from the warehouse marts
 
 ## Ideas to extend
 

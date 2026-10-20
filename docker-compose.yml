@@ -262,6 +262,13 @@ services:
     restart: unless-stopped
     depends_on: *depends-core
 
+  # ------------------------------------------- Linux-friendly BI alternative (optional)
+  metabase:
+    image: metabase/metabase:v0.50.26
+    profiles: [bi]
+    ports: ["3000:3000"]
+    networks: [jobmarket]
+
 networks:
   jobmarket:
     name: jobmarket_net

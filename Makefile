@@ -59,6 +59,9 @@ cdc: ## Start Debezium on the CRM and stream vacancy changes into Redis
 	     localhost:8083/connectors/jobmarket-crm-vacancies/config
 	@echo ""; curl -s localhost:8083/connectors/jobmarket-crm-vacancies/status; echo
 
+metabase: ## Start Metabase on http://localhost:3000 (Linux-friendly BI alternative)
+	$(COMPOSE) --profile bi up -d metabase
+
 test: ## Run unit tests locally
 	python3 -m pytest -q
 
@@ -66,9 +69,9 @@ logs: ## Tail logs of the streaming services
 	$(COMPOSE) logs -f lake-sink realtime api
 
 down: ## Stop everything (keeps data volumes)
-	$(COMPOSE) --profile jobs --profile airflow --profile cdc down
+	$(COMPOSE) --profile jobs --profile airflow --profile cdc --profile bi down
 
 clean: ## Stop everything and delete all data volumes
-	$(COMPOSE) --profile jobs --profile airflow --profile cdc down -v
+	$(COMPOSE) --profile jobs --profile airflow --profile cdc --profile bi down -v
 
-.PHONY: help env build up partner-drop crm-activity ingest drain spark dbt pipeline top-skills airflow cdc test logs down clean
+.PHONY: help env build up partner-drop crm-activity ingest drain spark dbt pipeline top-skills airflow cdc metabase test logs down clean

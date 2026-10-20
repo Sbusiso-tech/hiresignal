@@ -50,6 +50,15 @@ top-skills: ## Print the top 20 skills from the warehouse
 airflow: build ## Start Airflow (http://localhost:8080, admin / admin)
 	$(COMPOSE) --profile airflow up -d airflow
 
+cdc: ## Start Debezium on the CRM and stream vacancy changes into Redis
+	$(COMPOSE) --profile cdc up -d connect cdc-consumer
+	@echo "waiting for Kafka Connect..."; until curl -sf localhost:8083/connectors > /dev/null; do sleep 3; done
+	curl -s -X POST -H "Content-Type: application/json" --data @cdc/register-connector.json localhost:8083/connectors \
+	  || curl -s -X PUT -H "Content-Type: application/json" \
+	     --data "$$(python3 -c 'import json;print(json.dumps(json.load(open("cdc/register-connector.json"))["config"]))')" \
+	     localhost:8083/connectors/jobmarket-crm-vacancies/config
+	@echo ""; curl -s localhost:8083/connectors/jobmarket-crm-vacancies/status; echo
+
 test: ## Run unit tests locally
 	python3 -m pytest -q
 
@@ -57,9 +66,9 @@ logs: ## Tail logs of the streaming services
 	$(COMPOSE) logs -f lake-sink realtime api
 
 down: ## Stop everything (keeps data volumes)
-	$(COMPOSE) --profile jobs --profile airflow down
+	$(COMPOSE) --profile jobs --profile airflow --profile cdc down
 
 clean: ## Stop everything and delete all data volumes
-	$(COMPOSE) --profile jobs --profile airflow down -v
+	$(COMPOSE) --profile jobs --profile airflow --profile cdc down -v
 
-.PHONY: help env build up partner-drop crm-activity ingest drain spark dbt pipeline top-skills airflow test logs down clean
+.PHONY: help env build up partner-drop crm-activity ingest drain spark dbt pipeline top-skills airflow cdc test logs down clean

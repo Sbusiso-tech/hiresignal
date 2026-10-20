@@ -77,12 +77,12 @@ def realtime_skills(limit: int = Query(25, ge=1, le=200), source: str | None = N
     }
 
 
-@app.get("/jobs/latest", summary="Newest postings captured via Debezium CDC (requires the 'cdc' profile)")
+@app.get("/jobs/latest", summary="Newest CRM vacancy changes captured via Debezium CDC")
 def latest_jobs(limit: int = Query(20, ge=1, le=100)) -> dict:
     r: redis.Redis = state["redis"]
     return {
-        "cdc_counters": r.hgetall("rt:cdc"),
-        "jobs": [json.loads(item) for item in r.lrange("rt:latest_jobs", 0, limit - 1)],
+        "cdc_counters": r.hgetall("rt:crm:cdc"),
+        "vacancies": [json.loads(item) for item in r.lrange("rt:crm:latest", 0, limit - 1)],
     }
 
 

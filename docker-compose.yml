@@ -75,6 +75,8 @@ services:
     environment:
       KAFKA_CLUSTERS_0_NAME: jobmarket
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+      KAFKA_CLUSTERS_0_KAFKACONNECT_0_NAME: debezium
+      KAFKA_CLUSTERS_0_KAFKACONNECT_0_ADDRESS: http://connect:8083
     depends_on:
       kafka: {condition: service_healthy}
     networks: [jobmarket]
@@ -130,6 +132,7 @@ services:
   # Operational database of the in-house recruitment desk (a source system, not the warehouse)
   crm-db:
     image: postgres:16
+    command: ["postgres", "-c", "wal_level=logical", "-c", "max_replication_slots=4", "-c", "max_wal_senders=4"]
     ports: ["5433:5432"]
     environment:
       POSTGRES_DB: ${CRM_DB:-crm}
@@ -235,6 +238,29 @@ services:
     depends_on:
       postgres: {condition: service_healthy}
     networks: [jobmarket]
+
+  # ------------------------------------------------------ change data capture (optional)
+  connect:
+    image: quay.io/debezium/connect:2.7.3.Final
+    profiles: [cdc]
+    ports: ["8083:8083"]
+    environment:
+      BOOTSTRAP_SERVERS: kafka:29092
+      GROUP_ID: jobmarket-connect
+      CONFIG_STORAGE_TOPIC: connect_configs
+      OFFSET_STORAGE_TOPIC: connect_offsets
+      STATUS_STORAGE_TOPIC: connect_statuses
+    depends_on:
+      kafka: {condition: service_healthy}
+      crm-db: {condition: service_healthy}
+    networks: [jobmarket]
+
+  cdc-consumer:
+    <<: *app
+    profiles: [cdc]
+    command: ["python", "-m", "jobmarket.cdc_consumer"]
+    restart: unless-stopped
+    depends_on: *depends-core
 
 networks:
   jobmarket:

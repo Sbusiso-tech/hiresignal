@@ -1,0 +1,25 @@
+{
+  "name": "jobmarket-crm-vacancies",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "plugin.name": "pgoutput",
+    "database.hostname": "crm-db",
+    "database.port": "5432",
+    "database.user": "crm",
+    "database.password": "crm",
+    "database.dbname": "crm",
+    "topic.prefix": "crmcdc",
+    "table.include.list": "crm.vacancies",
+    "column.exclude.list": "crm.vacancies.description",
+    "slot.name": "crm_cdc",
+    "publication.name": "crm_cdc_pub",
+    "publication.autocreate.mode": "filtered",
+    "snapshot.mode": "initial",
+    "decimal.handling.mode": "double",
+    "time.precision.mode": "adaptive",
+    "key.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "key.converter.schemas.enable": "false",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": "false"
+  }
+}

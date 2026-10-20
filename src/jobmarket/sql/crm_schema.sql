@@ -38,6 +38,8 @@ create table if not exists crm.vacancies (
 );
 
 create index if not exists vacancies_updated_at_idx on crm.vacancies (updated_at);
+-- Full row images so Debezium delete events still carry the vacancy, not only its id.
+alter table crm.vacancies replica identity full;
 create index if not exists vacancies_status_idx on crm.vacancies (status);
 
 create or replace function crm.touch_updated_at() returns trigger

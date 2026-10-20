@@ -28,6 +28,7 @@ results to Power BI and a REST API, both as nightly batch analytics and as real-
           ├──► curated Parquet in the lake (silver)           │
                    ▼                                          │
      PostgreSQL  landing ──upsert──► core                     │
+                   │                                          │
                    ▼                                          │
      dbt: staging ──► intermediate ──► marts (+ tests)        │
                    │                                          │
@@ -88,7 +89,8 @@ only after Kafka has acknowledged all of its rows.
 The recruitment CRM is simulated the same way: `make crm-activity` plays the recruiters, opening,
 re-pricing, filling and closing vacancies in a separate PostgreSQL database (`crm-db`, schema `crm`)
 that stands in for an operational application. Ingestion reads every vacancy changed in the last
-`CRM_LOOKBACK_HOURS` through a read-only session.
+`CRM_LOOKBACK_HOURS` through a read-only session. `make cdc` adds the live path: Debezium tails the
+CRM write-ahead log and a consumer keeps the newest vacancy changes in Redis (`/jobs/latest`).
 
 Companies in both simulated feeds are fictional, so filter on
 `source not in ('partner_sftp', 'crm_postgres')` for market-only analysis.
@@ -126,6 +128,7 @@ Optional extras:
 
 ```bash
 make airflow   # scheduled DAG: partner drop + CRM activity + the whole pipeline at 06:00 and 18:00
+make cdc       # Debezium on crm.vacancies -> Kafka -> Redis, served by /jobs/latest
 make down      # stop (keeps data);  make clean  # stop and wipe all volumes
 ```
 
@@ -139,6 +142,7 @@ curl "localhost:8000/skills/Apache%20Spark/related"      # what to learn next
 curl "localhost:8000/salaries/by-skill"
 curl "localhost:8000/skills/realtime"                     # streaming layer (Redis)
 curl "localhost:8000/jobs?skill=dbt&remote=true"
+curl "localhost:8000/jobs/latest"                         # CRM vacancy changes via Debezium CDC
 curl "localhost:8000/pipeline/runs"                       # batch run audit log
 ```
 
@@ -156,6 +160,7 @@ src/jobmarket/
   ingest.py             APIs + SFTP + CRM -> Kafka (with dead-letter topic)
   lake_sink.py          Kafka -> S3 raw zone (gzipped JSONL, Hive-style partitions)
   realtime.py           Kafka -> Redis skill leaderboard (speed layer)
+  cdc_consumer.py       Debezium CRM change events -> Redis vacancy feed
   transform.py          cleaning rules (salary, experience, seniority, employment type)
   skills.py             skill extractor + skills_taxonomy.yml
   spark_jobs/           Spark batch job: lake -> curated Parquet -> Postgres upsert
@@ -163,6 +168,7 @@ src/jobmarket/
   api/                  FastAPI service
 dbt/                    staging -> intermediate -> marts, tests, FX seed
 airflow/dags/           orchestration DAG (DockerOperator tasks)
+cdc/                    Debezium connector config
 tests/                  unit tests (pytest)
 ```
 
@@ -188,13 +194,16 @@ tests/                  unit tests (pytest)
   payload (`raw`) is kept in the lake so any transformation can be replayed by re-running Spark.
 - **At-least-once + idempotency.** The lake sink commits Kafka offsets only after a file is written.
   Spark de-duplicates on `job_id`, and the Postgres upsert only rewrites rows that changed, so
-  re-running any step is safe and downstream consumers see no no-op updates.
+  re-running any step is safe and rows that did not change are not rewritten.
 - **Files are acknowledged, not just read.** SFTP files move to the archive only after Kafka confirms
   every row, and uploads are written under a temporary name and renamed, so a half-written or failed
   delivery is never lost or half-loaded.
 - **Operational and analytical stores stay apart.** The CRM is its own normalised OLTP database with
   constraints and an `updated_at` trigger; the platform only reads it, in a read-only session, over an
   overlapping time window, so a missed run never loses changes and re-reads are free thanks to the upsert.
+- **Change data capture on the operational database.** Debezium reads the CRM write-ahead log
+  (`pgoutput`) and publishes every insert, update and delete on `crm.vacancies` to Kafka. The batch
+  extract stays the complete, replayable copy; the CDC feed is the live view of what recruiters just did.
 - **Lambda architecture.** Kafka feeds both the batch path (lake → Spark → dbt, accurate and
   historical) and a speed path (Redis, live within seconds).
 - **Data quality at every layer.** pydantic validation with a dead-letter topic at ingestion, a
@@ -215,9 +224,9 @@ tests/                  unit tests (pytest)
 | 2 | Storage, file formats (JSON, Parquet), distributed FS, CAP, Docker | gzipped JSONL raw zone + Parquet curated zone on S3-compatible storage (RustFS); fully containerised |
 | 3 | SQL, ERDs, normalisation, ACID, PostgreSQL, NoSQL | operational CRM (OLTP, constraints, triggers) vs warehouse (OLAP); normalised `core.jobs` / `core.job_skills`, transactional upsert, star schema; Redis key-value store |
 | 4 | Data lakes vs warehouses, ETL vs ELT, ingestion from REST APIs with `requests` | six REST APIs + SFTP file drop; lake (RustFS) + warehouse (Postgres); ELT with dbt |
-| 5 | Batch vs stream, Spark, Kafka, Airflow DAGs | Spark batch job, Kafka streaming consumers, Airflow DAG |
+| 5 | Batch vs stream, Spark, Kafka, Airflow DAGs | Spark batch job, Kafka streaming consumers, Debezium CDC, Airflow DAG |
 | 6 | Data governance and quality dimensions | contracts, DLQ, quality gate, dbt tests and freshness, run audit table |
-| 7–8 | Capstone: multi-source ingestion, batch + stream, REST API serving, Spark, Airflow, Debezium, dbt, CDC, high-velocity store | APIs + SFTP + PostgreSQL CRM sources, Kafka, Spark, Airflow, dbt, FastAPI, Redis (Debezium CDC: roadmap) |
+| 7–8 | Capstone: multi-source ingestion, batch + stream, REST API serving, Spark, Airflow, Debezium, dbt, CDC, high-velocity store | APIs + SFTP + PostgreSQL CRM sources, Kafka, Spark, Airflow, dbt, FastAPI, Debezium CDC, Redis |
 | 9 | Demo and defence | architecture diagram, engineering decisions above, live API + dashboard |
 
 ---
@@ -250,6 +259,7 @@ Suggested report pages:
 - **Roles:** a matrix of job family by skill.
 - **Companies:** a table from `mart_top_companies`.
 
+
 ---
 
 ## Running locally without Docker (development)
@@ -265,7 +275,7 @@ python3 -m venv .venv && .venv/bin/pip install -e ".[dev,pipeline,api]"
 - [x] Apache Airflow DAG to schedule the whole pipeline
 - [x] SFTP source: a partner's daily CSV export of job postings
 - [x] Operational PostgreSQL source: the recruitment desk's CRM
-- [ ] Debezium CDC on the CRM: stream vacancy changes into Kafka and Redis
+- [x] Debezium CDC on the CRM: stream vacancy changes into Kafka and Redis
 - [ ] GitHub Actions CI: lint, unit tests and dbt parse
 - [ ] Power BI dashboard screenshots and setup guides
 

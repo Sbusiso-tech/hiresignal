@@ -76,7 +76,11 @@ ENRICHED_SCHEMA = T.StructType(
         T.StructField("salary_annual_max", T.DoubleType()),
         T.StructField(
             "skills",
-            T.ArrayType(T.StructType([T.StructField("skill", T.StringType()), T.StructField("category", T.StringType())])),
+            T.ArrayType(
+                T.StructType(
+                    [T.StructField("skill", T.StringType()), T.StructField("category", T.StringType())]
+                )
+            ),
         ),
     ]
 )

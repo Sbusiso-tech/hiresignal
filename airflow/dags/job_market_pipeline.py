@@ -11,8 +11,9 @@ from __future__ import annotations
 import os
 from datetime import datetime, timedelta
 
-from airflow import DAG
 from airflow.providers.docker.operators.docker import DockerOperator
+
+from airflow import DAG
 
 APP_IMAGE = os.getenv("JOBMARKET_APP_IMAGE", "jobmarket-app:latest")
 DBT_IMAGE = os.getenv("JOBMARKET_DBT_IMAGE", "jobmarket-dbt:latest")

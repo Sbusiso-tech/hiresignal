@@ -270,13 +270,20 @@ python3 -m venv .venv && .venv/bin/pip install -e ".[dev,pipeline,api]"
 .venv/bin/python -m jobmarket.ingest --dry-run data/sample.jsonl   # hit the real APIs, no Kafka
 ```
 
+## Continuous integration
+
+GitHub Actions (`.github/workflows/ci.yml`) runs on every push to `main` and on pull requests:
+
+- **lint and unit tests:** `ruff check` and `pytest`. Spark and Docker are not required.
+- **dbt parse:** checks that the dbt project compiles, using dbt 1.8, the same version as the image.
+
 ## Roadmap
 
 - [x] Apache Airflow DAG to schedule the whole pipeline
 - [x] SFTP source: a partner's daily CSV export of job postings
 - [x] Operational PostgreSQL source: the recruitment desk's CRM
 - [x] Debezium CDC on the CRM: stream vacancy changes into Kafka and Redis
-- [ ] GitHub Actions CI: lint, unit tests and dbt parse
+- [x] GitHub Actions CI: lint, unit tests and dbt parse
 - [ ] Power BI dashboard screenshots and setup guides
 
 ## Ideas to extend

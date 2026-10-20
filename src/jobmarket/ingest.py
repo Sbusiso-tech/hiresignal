@@ -51,7 +51,10 @@ def run(settings: Settings, source_names: list[str], dry_run_path: str | None = 
                         sink.write(event.model_dump_json() + "\n")
                     else:
                         producer.produce(
-                            settings.topic_raw, key=event.kafka_key(), value=event.kafka_value(), on_delivery=on_delivery
+                            settings.topic_raw,
+                            key=event.kafka_key(),
+                            value=event.kafka_value(),
+                            on_delivery=on_delivery,
                         )
                         producer.poll(0)
                     stats[f"{name}.published"] += 1

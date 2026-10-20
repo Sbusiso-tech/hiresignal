@@ -38,18 +38,18 @@ results to Power BI and a REST API, both as nightly batch analytics and as real-
                                                 Orchestrated by Apache Airflow
 ```
 
-Example output (a real run on 6 Oct 2026, ~1,600 postings, keyless sources only):
+Example output (warehouse snapshot, 20 October 2026, 6,720 postings):
 
-| Skill | Jobs |
-|---|---|
-| Python | 488 |
-| AWS | 288 |
-| CI/CD | 264 |
-| SQL | 261 |
-| Azure | 218 |
-| Machine Learning | 195 |
-| Kubernetes | 193 |
-| Docker | 151 |
+| Skill | Jobs | Share |
+|---|---|---|
+| Python | 1,709 | 39% |
+| Machine Learning | 981 | 22% |
+| SQL | 920 | 21% |
+| AWS | 873 | 20% |
+| CI/CD | 759 | 17% |
+| LLMs | 613 | 14% |
+| Kubernetes | 612 | 14% |
+| Azure | 575 | 13% |
 
 ---
 
@@ -120,6 +120,7 @@ make top-skills               # print the answer
 | RustFS console (data lake) | http://localhost:9001 | rustfsadmin / rustfsadmin |
 | Spark UI (while `make spark` runs) | http://localhost:4040 | |
 | Airflow (`make airflow`) | http://localhost:8080 | admin / admin |
+| Metabase (`make metabase`) | http://localhost:3000 | |
 | PostgreSQL | localhost:5432 | jobmarket / jobmarket |
 | Partner SFTP | sftp://localhost:2222 | partner / partner |
 | Recruitment CRM (PostgreSQL) | localhost:5433, database `crm` | crm / crm |
@@ -259,7 +260,6 @@ Suggested report pages:
 - **Roles:** a matrix of job family by skill.
 - **Companies:** a table from `mart_top_companies`.
 
-
 ---
 
 ## Dashboard
@@ -271,7 +271,6 @@ Rendered from the live `marts` tables on 20 October 2026 (6,720 postings). Pytho
 On Linux, `make metabase` starts Metabase at http://localhost:3000. Connect it to host `postgres`, port `5432`, database `jobmarket`, and use schema `marts`. On Windows, the Power BI steps above use the same tables.
 
 ## Running locally without Docker (development)
-
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -e ".[dev,pipeline,api]"
@@ -286,14 +285,18 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on every push to `main` and on 
 - **lint and unit tests:** `ruff check` and `pytest`. Spark and Docker are not required.
 - **dbt parse:** checks that the dbt project compiles, using dbt 1.8, the same version as the image.
 
-## Roadmap
+## Demo script
 
-- [x] Apache Airflow DAG to schedule the whole pipeline
-- [x] SFTP source: a partner's daily CSV export of job postings
-- [x] Operational PostgreSQL source: the recruitment desk's CRM
-- [x] Debezium CDC on the CRM: stream vacancy changes into Kafka and Redis
-- [x] GitHub Actions CI: lint, unit tests and dbt parse
-- [x] Dashboard screenshots from the warehouse marts
+About ten minutes. The stack is already up (`make up`).
+
+1. **The question.** Open the dashboard figure above, or http://localhost:3000 after `make metabase`. Python is in 39% of postings; say what that is for.
+2. **Three sources.** `make partner-drop` uploads today's CSV to SFTP. `make crm-activity` changes vacancies in the CRM. `make ingest` publishes the APIs, the CSV and the CRM changes to Kafka. Show the topics in Kafka UI at http://localhost:8081.
+3. **Batch path.** `make pipeline` drains Kafka to the lake, runs Spark and builds the dbt marts. Then `make top-skills`. Say that a second run inserts nothing for rows that did not change.
+4. **Live path.** `make cdc`, then `make crm-activity` again, then `curl -s localhost:8000/jobs/latest | python3 -m json.tool`. The vacancy change is in Redis before the next batch run.
+5. **Schedule.** Open Airflow at http://localhost:8080 (`admin` / `admin`) and show `job_market_pipeline`: partner drop and CRM activity, then ingest, lake, Spark, dbt.
+6. **Close.** Point at GitHub Actions on `main`, and at the engineering decisions above if someone asks why the lake keeps the raw payload.
+
+Written guides: [Linux setup](docs/Job-Market-Platform-Setup-Linux.pdf), [Windows setup](docs/Job-Market-Platform-Setup-Windows.pdf), [project overview](docs/Job-Market-Platform-Project-Overview.pdf).
 
 ## Ideas to extend
 

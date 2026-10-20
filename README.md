@@ -304,3 +304,5 @@ Written guides: [Linux setup](docs/Job-Market-Platform-Setup-Linux.pdf), [Window
 - Classify skills with an LLM or NER model and compare against the dictionary approach.
 - Store the curated zone as Delta Lake or Iceberg tables and query it with Trino.
 - Deploy to AWS (MSK, S3, EMR, RDS and MWAA) using Terraform.
+
+WTC-AJPLDQS3

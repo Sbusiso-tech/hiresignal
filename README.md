@@ -285,17 +285,6 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on every push to `main` and on 
 - **lint and unit tests:** `ruff check` and `pytest`. Spark and Docker are not required.
 - **dbt parse:** checks that the dbt project compiles, using dbt 1.8, the same version as the image.
 
-## Demo script
-
-About ten minutes. The stack is already up (`make up`).
-
-1. **The question.** Open the dashboard figure above, or http://localhost:3000 after `make metabase`. Python is in 39% of postings; say what that is for.
-2. **Three sources.** `make partner-drop` uploads today's CSV to SFTP. `make crm-activity` changes vacancies in the CRM. `make ingest` publishes the APIs, the CSV and the CRM changes to Kafka. Show the topics in Kafka UI at http://localhost:8081.
-3. **Batch path.** `make pipeline` drains Kafka to the lake, runs Spark and builds the dbt marts. Then `make top-skills`. Say that a second run inserts nothing for rows that did not change.
-4. **Live path.** `make cdc`, then `make crm-activity` again, then `curl -s localhost:8000/jobs/latest | python3 -m json.tool`. The vacancy change is in Redis before the next batch run.
-5. **Schedule.** Open Airflow at http://localhost:8080 (`admin` / `admin`) and show `job_market_pipeline`: partner drop and CRM activity, then ingest, lake, Spark, dbt.
-6. **Close.** Point at GitHub Actions on `main`, and at the engineering decisions above if someone asks why the lake keeps the raw payload.
-
 Written guides: [Linux setup](docs/Job-Market-Platform-Setup-Linux.pdf), [Windows setup](docs/Job-Market-Platform-Setup-Windows.pdf), [project overview](docs/Job-Market-Platform-Project-Overview.pdf).
 
 ## Ideas to extend

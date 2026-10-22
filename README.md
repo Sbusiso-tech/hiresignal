@@ -217,21 +217,6 @@ tests/                  unit tests (pytest)
 
 ---
 
-## Curriculum mapping (WeThinkCode_ Data Engineering elective)
-
-| Week | Topic | Where in this project |
-|---|---|---|
-| 1 | ETL, Linux/Bash, Python + Pandas | `ingest.py` → `transform.py` → load; Makefile/Bash automation |
-| 2 | Storage, file formats (JSON, Parquet), distributed FS, CAP, Docker | gzipped JSONL raw zone + Parquet curated zone on S3-compatible storage (RustFS); fully containerised |
-| 3 | SQL, ERDs, normalisation, ACID, PostgreSQL, NoSQL | operational CRM (OLTP, constraints, triggers) vs warehouse (OLAP); normalised `core.jobs` / `core.job_skills`, transactional upsert, star schema; Redis key-value store |
-| 4 | Data lakes vs warehouses, ETL vs ELT, ingestion from REST APIs with `requests` | six REST APIs + SFTP file drop; lake (RustFS) + warehouse (Postgres); ELT with dbt |
-| 5 | Batch vs stream, Spark, Kafka, Airflow DAGs | Spark batch job, Kafka streaming consumers, Debezium CDC, Airflow DAG |
-| 6 | Data governance and quality dimensions | contracts, DLQ, quality gate, dbt tests and freshness, run audit table |
-| 7–8 | Capstone: multi-source ingestion, batch + stream, REST API serving, Spark, Airflow, Debezium, dbt, CDC, high-velocity store | APIs + SFTP + PostgreSQL CRM sources, Kafka, Spark, Airflow, dbt, FastAPI, Debezium CDC, Redis |
-| 9 | Demo and defence | architecture diagram, engineering decisions above, live API + dashboard |
-
----
-
 ## Power BI
 
 Power BI Desktop runs on Windows. Connect it to the warehouse:

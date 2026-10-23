@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 300" width="1200" height="300">
+  <rect width="1200" height="300" rx="16" fill="#04342C"/>
+  <g transform="translate(110,95)">
+    <rect x="0"  y="80" width="22" height="30"  rx="4" fill="#5DCAA5"/>
+    <rect x="32" y="55" width="22" height="55"  rx="4" fill="#5DCAA5"/>
+    <rect x="64" y="30" width="22" height="80"  rx="4" fill="#5DCAA5"/>
+    <rect x="96" y="0"  width="22" height="110" rx="4" fill="#9FE1CB"/>
+  </g>
+  <text x="270" y="170" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="76" font-weight="600" fill="#E1F5EE">Hire<tspan fill="#5DCAA5">Signal</tspan></text>
+  <text x="272" y="215" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="26" fill="#9FE1CB">Cut through the noise of the job market</text>
+</svg>

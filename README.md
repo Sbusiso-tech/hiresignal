@@ -263,3 +263,5 @@ python3 -m venv .venv && .venv/bin/pip install -e ".[dev,pipeline,api]"
 - Deploy to AWS (MSK, S3, EMR, RDS and MWAA) using Terraform.
 
 <p align="center"><sub>Built by <a href="https://github.com/Sbusiso-tech">Sbusiso-tech</a> · HireSignal 📡</sub></p>
+
+WTC-AJPLDQS3

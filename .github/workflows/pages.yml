@@ -1,0 +1,41 @@
+name: Pages
+
+# Publishes the static HireSignal dashboard in site/ to GitHub Pages.
+# One-time setup: Settings -> Pages -> Build and deployment -> Source: GitHub Actions.
+on:
+  push:
+    branches: [main]
+    paths: ["site/**", ".github/workflows/pages.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: publish site
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check the data file
+        run: |
+          if [ -f site/data/hiresignal.json ]; then
+            python3 -c "import json; d = json.load(open('site/data/hiresignal.json')); print(d['kpis']['jobs'], 'postings,', len(d['skills']), 'skills')"
+          else
+            echo "::warning::site/data/hiresignal.json is missing - the page will ask for 'make export-site'"
+          fi
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4

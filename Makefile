@@ -59,6 +59,15 @@ cdc: ## Start Debezium on the CRM and stream vacancy changes into Redis
 	     localhost:8083/connectors/jobmarket-crm-vacancies/config
 	@echo ""; curl -s localhost:8083/connectors/jobmarket-crm-vacancies/status; echo
 
+export-site: build ## Export the marts to site/data/hiresignal.json for the GitHub Pages dashboard
+	@mkdir -p site/data
+	$(COMPOSE) run --rm -T ingest python -m jobmarket.export_site $(EXPORT_ARGS) > site/data/.hiresignal.tmp.json
+	@mv site/data/.hiresignal.tmp.json site/data/hiresignal.json
+	@echo "wrote site/data/hiresignal.json - preview with: make site, then commit and push to publish"
+
+site: ## Preview the static dashboard on http://localhost:8090
+	@echo "open http://localhost:8090"; cd site && python3 -m http.server 8090
+
 metabase: ## Start Metabase on http://localhost:3000 (Linux-friendly BI alternative)
 	$(COMPOSE) --profile bi up -d metabase
 
@@ -74,4 +83,4 @@ down: ## Stop everything (keeps data volumes)
 clean: ## Stop everything and delete all data volumes
 	$(COMPOSE) --profile jobs --profile airflow --profile cdc --profile bi down -v
 
-.PHONY: help env build up partner-drop crm-activity ingest drain spark dbt pipeline top-skills airflow cdc metabase test logs down clean
+.PHONY: help env build up partner-drop crm-activity ingest drain spark dbt pipeline top-skills airflow cdc export-site site metabase test logs down clean

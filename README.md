@@ -8,6 +8,10 @@
 </p>
 
 <p align="center">
+  <a href="https://sbusiso-tech.github.io/hiresignal/"><b>🌐 Open the live dashboard</b></a>
+</p>
+
+<p align="center">
   <a href="https://github.com/Sbusiso-tech/hiresignal/actions/workflows/ci.yml"><img src="https://github.com/Sbusiso-tech/hiresignal/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
 </p>
 
@@ -24,6 +28,7 @@
 </p>
 
 <p align="center">
+  <a href="https://sbusiso-tech.github.io/hiresignal/">Live dashboard</a> ·
   <a href="#-the-signal">The signal</a> ·
   <a href="#%EF%B8%8F-how-it-works">How it works</a> ·
   <a href="#-quick-start">Quick start</a> ·
@@ -58,6 +63,25 @@ Warehouse snapshot from 20 October 2026: **6,720 postings** from **2,487 compani
 </p>
 
 <p align="center"><sub>Rendered from the live <code>marts</code> tables on 20 October 2026. Explore the same tables in Power BI (Windows) or Metabase (<code>make metabase</code>, Linux).</sub></p>
+
+### 🌐 Live dashboard
+
+**[sbusiso-tech.github.io/hiresignal](https://sbusiso-tech.github.io/hiresignal/)** is an interactive, public view of the
+warehouse, hosted free on GitHub Pages. Pick any skill to see its share of postings, median salary, monthly trend and the
+skills most often requested with it; compare role families; and browse the latest postings, each linking back to the
+board that published it.
+
+It is a static export of the dbt marts, so there is no server to run or pay for:
+
+```bash
+make pipeline        # refresh the warehouse
+make export-site     # marts -> site/data/hiresignal.json (real job boards only)
+make site            # optional: preview at http://localhost:8090
+git add site/data/hiresignal.json && git commit -m "data: refresh site" && git push
+```
+
+Pushing a change under `site/` runs the **Pages** workflow, which publishes the new snapshot in about a minute. The export
+leaves out the simulated partner and CRM feeds by default; pass `EXPORT_ARGS=--include-simulated` to keep them.
 
 ---
 
@@ -127,6 +151,7 @@ Optional extras:
 make cdc       # Debezium on crm.vacancies -> Kafka -> Redis, served by /jobs/latest
 make airflow   # scheduled DAG: partner drop + CRM activity + the whole pipeline
 make metabase  # BI on Linux, reading the same marts as Power BI
+make export-site && make site   # build and preview the public dashboard
 make help      # every target with a one-line description
 make down      # stop (keeps data);  make clean  # stop and wipe all volumes
 ```
@@ -240,6 +265,7 @@ with a `currency_rates_to_usd` seed and custom tests for value ranges and compos
 - **Lineage and observability.** `core.pipeline_runs` records every Spark run: raw records, unique jobs, inserts, updates and status.
 - **One image per runtime.** A single app image runs ingestion, consumers, Spark and the API, launched by Airflow's `DockerOperator`.
 - **Checked on every push.** GitHub Actions runs `ruff`, `pytest` and `dbt parse` (dbt pinned to 1.8, the same version as the image) on `main` and on pull requests.
+- **Static by design for the public view.** The hosted dashboard is a JSON export of the marts served from GitHub Pages: free, fast, nothing to keep running, and the warehouse is never exposed to the internet.
 
 ---
 
@@ -252,7 +278,8 @@ The stack is already up (`make up`).
 3. **Batch path.** `make pipeline` drains Kafka to the lake, runs Spark and builds the dbt marts. Then `make top-skills`. A second run inserts nothing for rows that did not change.
 4. **Live path.** `make cdc`, `make crm-activity` again, then `curl -s localhost:8000/jobs/latest | python3 -m json.tool`. The change is in Redis before the next batch run.
 5. **Schedule.** Open Airflow at http://localhost:8080 and show `job_market_pipeline`: partner drop and CRM activity, then ingest, lake, Spark, dbt.
-6. **Close.** Point at the green GitHub Actions run on `main`, and at the engineering decisions above.
+6. **Public view.** Open the [live dashboard](https://sbusiso-tech.github.io/hiresignal/), pick a skill and follow its "often asked for with" links.
+7. **Close.** Point at the green GitHub Actions runs on `main`, and at the engineering decisions above.
 
 ---
 
@@ -275,13 +302,15 @@ src/jobmarket/
   spark_jobs/           Spark batch job: lake -> curated Parquet -> Postgres upsert
   sql/                  warehouse DDL + idempotent upsert, CRM schema
   api/                  FastAPI service
+  export_site.py        marts -> JSON snapshot for the public dashboard
 cdc/                    Debezium connector config
 dbt/                    staging -> intermediate -> marts, tests, FX seed
 airflow/dags/           orchestration DAG (DockerOperator tasks)
 docker/                 app, dbt, Postgres init and SFTP images
+site/                   static dashboard published to GitHub Pages (index.html, app.js, data/)
 docs/                   setup guides, project overview, dashboard
 tests/                  unit tests (pytest)
-.github/workflows/      CI: lint, unit tests, dbt parse
+.github/workflows/      CI (lint, unit tests, dbt parse) and Pages deployment
 ```
 </details>
 
@@ -323,7 +352,7 @@ Suggested pages:
 | 5    | Batch vs stream, Spark, Kafka, Airflow                   | Spark batch job, Kafka streaming consumers, Debezium CDC, Airflow DAG        |
 | 6    | Data governance and quality                              | contracts, DLQ, quality gate, dbt tests and freshness, run audit table, CI   |
 | 7–8  | Capstone                                                 | APIs + SFTP + CRM, Kafka, Spark, Airflow, dbt, FastAPI, Redis, Debezium CDC  |
-| 9    | Demo and defence                                         | architecture diagram, engineering decisions, live API + dashboard, demo above |
+| 9    | Demo and defence                                         | architecture diagram, engineering decisions, live API, hosted dashboard, demo above |
 </details>
 
 <details>
@@ -347,7 +376,8 @@ python3 -m venv .venv && .venv/bin/pip install -e ".[dev,pipeline,api]"
 - [x] Debezium CDC on the CRM: stream vacancy changes into Kafka and Redis
 - [x] GitHub Actions CI: lint, unit tests and dbt parse
 - [x] Dashboard screenshot, Metabase and setup guides (Linux, Windows, overview)
-- [ ] Hosted HireSignal web dashboard
+- [x] Hosted HireSignal web dashboard on [GitHub Pages](https://sbusiso-tech.github.io/hiresignal/)
+- [ ] Publish the site snapshot automatically from the Airflow DAG
 
 ## 💡 Ideas to extend
 

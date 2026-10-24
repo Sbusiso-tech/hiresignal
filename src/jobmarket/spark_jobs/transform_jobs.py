@@ -170,13 +170,35 @@ def curate(jobs: DataFrame) -> DataFrame:
     )
 
 
+SALARY_CEILING = 10_000_000
+# salary_annual_max goes last: the condition reads it, so it must be cleared after the other columns.
+SALARY_COLUMNS = ("salary_min", "salary_max", "salary_currency", "salary_period", "salary_annual_min",
+                  "salary_annual_max")
+
+
+def drop_implausible_salaries(curated: DataFrame) -> DataFrame:
+    """Blank out salaries above the ceiling instead of failing the run; the posting itself is kept.
+
+    One mis-parsed salary (a typo, a currency in cents, a monthly figure read as hourly) should not stop a
+    whole batch from loading. The quality gate still checks the ceiling afterwards as a guard on this step.
+    """
+    implausible = F.col("salary_annual_max") > SALARY_CEILING
+    dropped = curated.filter(implausible).select("job_id", "salary_annual_max", "salary_currency").collect()
+    for row in dropped:
+        log.warning("dropping implausible salary for %s: %s %s a year", row.job_id, row.salary_annual_max,
+                    row.salary_currency)
+    for column in SALARY_COLUMNS:
+        curated = curated.withColumn(column, F.when(implausible, F.lit(None)).otherwise(F.col(column)))
+    return curated
+
+
 def quality_gate(curated: DataFrame) -> None:
     checks = curated.agg(
         F.count("*").alias("rows"),
         F.sum(F.when(F.col("job_title").isNull() | (F.col("job_title") == ""), 1).otherwise(0)).alias("blank_titles"),
         F.sum(F.when(~F.col("employment_type").isin(*EMPLOYMENT_TYPES), 1).otherwise(0)).alias("bad_employment"),
         F.sum(F.when(F.col("salary_annual_min") > F.col("salary_annual_max"), 1).otherwise(0)).alias("bad_salary"),
-        F.sum(F.when(F.col("salary_annual_max") > 10_000_000, 1).otherwise(0)).alias("absurd_salary"),
+        F.sum(F.when(F.col("salary_annual_max") > SALARY_CEILING, 1).otherwise(0)).alias("absurd_salary"),
     ).first().asDict()
     log.info("quality checks: %s", checks)
     failures = {k: v for k, v in checks.items() if k != "rows" and v}
@@ -228,7 +250,7 @@ def run(settings: Settings) -> dict:
         run_info["raw_records"] = raw.count()
         log.info("raw records in lake: %d", run_info["raw_records"])
 
-        curated = curate(deduplicate(raw)).cache()
+        curated = drop_implausible_salaries(curate(deduplicate(raw)).cache()).cache()
         run_info["unique_jobs"] = curated.count()
         quality_gate(curated)
 

@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HireSignal</title>
+<meta name="description" content="What technologies are employers actually asking for? Skill demand, pairings and salaries from thousands of real job postings.">
+<meta name="theme-color" content="#031A16">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23031A16'/%3E%3Crect x='6' y='18' width='4' height='8' rx='1' fill='%232BC08E'/%3E%3Crect x='14' y='12' width='4' height='14' rx='1' fill='%232BC08E'/%3E%3Crect x='22' y='6' width='4' height='20' rx='1' fill='%232BC08E'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<a class="skip" href="#explorer">Skip to the skill explorer</a>
+
+<header class="top">
+  <a class="brand" href="./" aria-label="HireSignal home">
+    <svg viewBox="0 0 28 22" aria-hidden="true"><rect x="0" y="13" width="6" height="9" rx="1.5"/><rect x="11" y="7" width="6" height="15" rx="1.5"/><rect x="22" y="0" width="6" height="22" rx="1.5"/></svg>
+    <span>Hire<b>Signal</b></span>
+  </a>
+  <p class="updated" id="updated"></p>
+</header>
+
+<main>
+  <section class="hero" aria-labelledby="headline">
+    <h1 id="headline">What are employers actually asking for?</h1>
+    <p class="lede" id="lede">Loading the latest warehouse snapshot.</p>
+    <figure class="spectrum-wrap">
+      <div class="spectrum" id="spectrum" role="listbox" aria-label="Skills ranked by demand. Choose one to explore it."></div>
+      <figcaption id="spectrum-caption">Each bar is one skill, ranked by the share of tech postings that ask for it. Choose a bar to explore that skill.</figcaption>
+    </figure>
+  </section>
+
+  <section class="explorer" id="explorer" aria-labelledby="explorer-title">
+    <div class="finder">
+      <h2 id="explorer-title">Find a skill</h2>
+      <label class="search">
+        <span class="visually-hidden">Search skills</span>
+        <input id="search" type="search" placeholder="Search, e.g. Kafka" autocomplete="off">
+      </label>
+      <div class="chips" id="categories" role="group" aria-label="Filter by category"></div>
+      <ol class="skill-list" id="skill-list"></ol>
+    </div>
+    <article class="detail" id="detail" aria-live="polite"></article>
+  </section>
+
+  <section class="block" aria-labelledby="roles-title">
+    <div class="block-head">
+      <h2 id="roles-title">What each role asks for</h2>
+      <p id="roles-note">Share of postings in the role that mention the skill.</p>
+    </div>
+    <div class="tabs" id="family-tabs" role="tablist" aria-label="Role family"></div>
+    <div id="family-panel" role="tabpanel"></div>
+  </section>
+
+  <section class="block" aria-labelledby="pay-title">
+    <div class="block-head">
+      <h2 id="pay-title">What skills pay</h2>
+      <p>Annual salary in US dollars where the posting states one. The bar spans the middle half of salaries; the mark is the median. <span id="pay-min"></span></p>
+    </div>
+    <div class="pay-controls">
+      <label>Sort by
+        <select id="pay-sort">
+          <option value="median">highest median</option>
+          <option value="n">most salaries stated</option>
+        </select>
+      </label>
+    </div>
+    <div class="pay" id="pay"></div>
+  </section>
+
+  <section class="block two" aria-labelledby="market-title">
+    <div class="block-head">
+      <h2 id="market-title">Who is hiring</h2>
+      <p>Tech postings by company, with the skills each one asks for most.</p>
+    </div>
+    <div class="companies-wrap">
+      <table class="companies" id="companies">
+        <thead><tr><th scope="col">Company</th><th scope="col" class="num">Postings</th><th scope="col">Asks for</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="mix" id="mix"></div>
+  </section>
+
+  <section class="block" aria-labelledby="latest-title">
+    <div class="block-head">
+      <h2 id="latest-title">Latest postings</h2>
+      <p>Open a posting on the board that published it.</p>
+    </div>
+    <ul class="latest" id="latest"></ul>
+  </section>
+</main>
+
+<footer class="foot" id="foot">
+  <div>
+    <p><b>How this is built.</b> Postings are collected twice a day from public job boards, streamed through Kafka into a data lake, cleaned with Spark and modelled with dbt in PostgreSQL. This page is a static export of those models.</p>
+    <p id="foot-sources"></p>
+  </div>
+  <p><a href="https://github.com/Sbusiso-tech/hiresignal">Source code and architecture on GitHub</a></p>
+</footer>
+
+<template id="empty-tpl">
+  <div class="empty">
+    <h2>No data published yet</h2>
+    <p>Run the pipeline, export the warehouse and push the file:</p>
+    <pre><code>make pipeline
+make export-site
+git add site/data/hiresignal.json
+git commit -m "data: refresh HireSignal site"
+git push</code></pre>
+  </div>
+</template>
+
+<script src="app.js" defer></script>
+</body>
+</html>
